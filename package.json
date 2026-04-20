@@ -1,0 +1,49 @@
+{
+  "name": "@stubbedev/adobe-experience-dev-mcp",
+  "version": "0.1.0",
+  "description": "MCP server for Adobe Experience Manager Assets integration development",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "adobe-experience-dev-mcp": "dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts",
+    "smoke": "npm run build && npm run smoke:validate",
+    "smoke:tools": "printf '%s\\n' '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\",\"params\":{}}' | node dist/index.js",
+    "smoke:validate": "printf '%s\\n' '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\",\"params\":{}}' | node dist/index.js | node -e \"let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{try{const r=JSON.parse(d.trim());if(r.error)throw new Error('server error: '+r.error.message);const t=r.result?.tools;if(!Array.isArray(t)||!t.length)throw new Error('no tools in response');const bad=t.filter(x=>!x.name||!x.inputSchema);if(bad.length)throw new Error('malformed tools: '+bad.map(x=>x.name??'(unnamed)').join(', '));console.log('smoke OK - '+t.length+' tool(s): '+t.map(x=>x.name).join(', '))}catch(e){console.error('smoke FAIL:',e.message);process.exit(1)}})\""
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/stubbedev/adobe-experience-dev-mcp.git"
+  },
+  "homepage": "https://github.com/stubbedev/adobe-experience-dev-mcp#readme",
+  "bugs": {
+    "url": "https://github.com/stubbedev/adobe-experience-dev-mcp/issues"
+  },
+  "license": "MIT",
+  "keywords": [
+    "mcp",
+    "adobe",
+    "aem",
+    "assets",
+    "dam",
+    "adobe-experience-manager",
+    "model-context-protocol"
+  ],
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "^25.6.0",
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.3"
+  }
+}
