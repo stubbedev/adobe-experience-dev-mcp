@@ -5,7 +5,7 @@ import { ToolRegistry } from "./registry.js";
 import { assetsTools, foldersTools, metadataTools, renditionsTools, searchTools, uploadsTools } from "./categories/index.js";
 import { arraySchema, booleanSchema, objectSchema, stringSchema } from "./schemas.js";
 import type { CategoryDefinition, JsonObject, ToolDefinition } from "./types.js";
-import { assertRecord, stringifyResponsePayload } from "./utils.js";
+import { assertRecord, getOptionalString, getString, stringifyResponsePayload } from "./utils.js";
 
 type SearchEntry = {
   keywords: string[];
@@ -580,13 +580,13 @@ export class AdobeExperienceDevMcpServer {
   private readonly server: Server;
   private readonly registry: ToolRegistry;
 
-  constructor() {
+  constructor(version: string) {
     this.registry = new ToolRegistry();
 
     this.server = new Server(
       {
         name: "adobe-experience-assets-dev-assistant",
-        version: "0.1.0",
+        version,
       },
       {
         capabilities: {
@@ -690,7 +690,7 @@ export class AdobeExperienceDevMcpServer {
         ["category"]
       ),
       handler: async (args) => {
-        const category = String(args.category ?? "").trim().toLowerCase();
+        const category = getString(args, "category").toLowerCase();
 
         if (!CATEGORY_TOOL_MAP[category]) {
           return {
@@ -729,11 +729,7 @@ export class AdobeExperienceDevMcpServer {
         ["query"]
       ),
       handler: (args) => {
-        const query = String(args.query ?? "").toLowerCase().trim();
-
-        if (!query) {
-          throw new Error("'query' must be a non-empty string.");
-        }
+        const query = getString(args, "query").toLowerCase();
 
         const queryTerms = query.split(/\s+/);
 
@@ -817,12 +813,7 @@ export class AdobeExperienceDevMcpServer {
         ["presetName"]
       ),
       handler: (args) => {
-        const rawPresetName = String(args.presetName ?? "").trim();
-        if (!rawPresetName) {
-          throw new Error("'presetName' must be a non-empty string.");
-        }
-
-        const preset = getPresetByName(rawPresetName);
+        const preset = getPresetByName(getString(args, "presetName"));
 
         return {
           presetName: preset.id,
@@ -867,7 +858,7 @@ export class AdobeExperienceDevMcpServer {
         const steps = parseStringArray(args.steps, "steps");
         const safeguards = parseSafeguards(args.safeguards);
 
-        const presetName = args.presetName !== undefined ? String(args.presetName).trim() : "";
+        const presetName = getOptionalString(args, "presetName") ?? "";
         const strictRecommended = args.strictRecommended === true;
 
         const selectedPreset = presetName ? getPresetByName(presetName) : null;
@@ -1026,9 +1017,8 @@ export class AdobeExperienceDevMcpServer {
         []
       ),
       handler: (args) => {
-        const scenario = String(args.scenario ?? "bulk_migration").trim().toLowerCase();
-        const normalizedScenario = scenario.length > 0 ? scenario : "bulk_migration";
-        const preset = getPresetByName(normalizedScenario);
+        const scenario = (getOptionalString(args, "scenario") ?? "bulk_migration").toLowerCase();
+        const preset = getPresetByName(scenario);
 
         return {
           scenario: preset.id,

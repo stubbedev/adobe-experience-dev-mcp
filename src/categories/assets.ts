@@ -8,6 +8,7 @@ import {
   getOptionalNumber,
   getOptionalString,
   getString,
+  normalizeRepositoryPath,
   requiredAccess,
   toApiAssetsEndpoint,
   toApiAssetsRelativePath,
@@ -363,8 +364,11 @@ export const searchTools: ToolDefinition[] = [
         throw new Error("'orderDirection' must be 'asc' or 'desc'.");
       }
 
+      const normalizedPath = normalizeRepositoryPath(path);
+      const damPath = normalizedPath ? `/content/dam/${normalizedPath}` : "/content/dam";
+
       const queryParams: Record<string, string> = {
-        path: path.startsWith("/") ? path : `/content/dam/${path}`,
+        path: damPath,
         type: "dam:Asset",
         "p.limit": String(limit),
         "p.offset": String(offset),
@@ -481,8 +485,11 @@ export const searchTools: ToolDefinition[] = [
         ensureNonNegativeInteger(guessTotalLimit, "guessTotalLimit");
       }
 
+      const normalizedPath = normalizeRepositoryPath(path);
+      const damPath = normalizedPath ? `/content/dam/${normalizedPath}` : "/content/dam";
+
       const queryParams: Record<string, string> = {
-        path: path.startsWith("/") ? path : `/content/dam/${path}`,
+        path: damPath,
         type: "dam:Asset",
         "p.limit": String(pageSize),
         "p.offset": String(offset),
@@ -570,8 +577,11 @@ export const searchTools: ToolDefinition[] = [
       ensureNonNegativeInteger(limit, "limit");
       ensureNonNegativeInteger(offset, "offset");
 
+      const normalizedPath = normalizeRepositoryPath(path);
+      const damPath = normalizedPath ? `/content/dam/${normalizedPath}` : "/content/dam";
+
       const queryParams: Record<string, string> = {
-        path: path.startsWith("/") ? path : `/content/dam/${path}`,
+        path: damPath,
         type: "dam:Asset",
         "1_property": "jcr:content/jcr:lastModified",
         "1_property.operation": "greater_or_equal",

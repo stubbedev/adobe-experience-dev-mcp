@@ -2,7 +2,7 @@ import type { ToolDefinition } from "./types.js";
 
 export class ToolRegistry {
   private tools = new Map<string, ToolDefinition>();
-  public loadedCategories = new Set<string>();
+  public readonly loadedCategories = new Set<string>();
 
   registerCategory(categoryName: string, categoryTools: ToolDefinition[]): string[] {
     const newToolNames: string[] = [];
