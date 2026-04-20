@@ -5,6 +5,7 @@ import {
   buildJsonHeaders,
   getArray,
   getBaseUrl,
+  getRepositoryPath,
   getString,
   requiredAccess,
   toApiAssetsEndpoint,
@@ -49,14 +50,14 @@ export const metadataTools: ToolDefinition[] = [
     category: "metadata",
     inputSchema: objectSchema(
       {
-        assetPath: stringSchema("Asset path relative to /content/dam"),
-        baseUrl: stringSchema("Optional AEM author base URL"),
+        assetPath: stringSchema("Asset path relative to /content/dam", { minLength: 1 }),
+        baseUrl: stringSchema("Optional AEM author base URL", { pattern: "^https?://" }),
       },
       ["assetPath"]
     ),
     handler: (args) => {
       const baseUrl = getBaseUrl(args);
-      const assetPath = getString(args, "assetPath");
+      const assetPath = getRepositoryPath(args, "assetPath");
       const endpoint = toApiAssetsEndpoint(baseUrl, assetPath, true);
 
       return {
@@ -85,21 +86,22 @@ export const metadataTools: ToolDefinition[] = [
     category: "metadata",
     inputSchema: objectSchema(
       {
-        assetPath: stringSchema("Asset path relative to /content/dam"),
+        assetPath: stringSchema("Asset path relative to /content/dam", { minLength: 1 }),
         metadata: objectSchema(
           {
             "dc:title": stringSchema("Example metadata field"),
           },
           [],
-          true
+          true,
+          { minProperties: 1 }
         ),
-        baseUrl: stringSchema("Optional AEM author base URL"),
+        baseUrl: stringSchema("Optional AEM author base URL", { pattern: "^https?://" }),
       },
       ["assetPath", "metadata"]
     ),
     handler: (args) => {
       const baseUrl = getBaseUrl(args);
-      const assetPath = getString(args, "assetPath");
+      const assetPath = getRepositoryPath(args, "assetPath");
       const metadata = normalizeMetadataProperties(args.metadata);
 
       const endpoint = toApiAssetsEndpoint(baseUrl, assetPath, false);
@@ -132,17 +134,18 @@ export const metadataTools: ToolDefinition[] = [
     category: "metadata",
     inputSchema: objectSchema(
       {
-        baseUrl: stringSchema("Optional AEM author base URL"),
+        baseUrl: stringSchema("Optional AEM author base URL", { pattern: "^https?://" }),
         updates: arraySchema(
           "List of metadata updates",
           objectSchema(
             {
-              assetPath: stringSchema("Asset path relative to /content/dam"),
-              metadata: objectSchema({}, [], true),
+              assetPath: stringSchema("Asset path relative to /content/dam", { minLength: 1 }),
+              metadata: objectSchema({}, [], true, { minProperties: 1 }),
             },
             ["assetPath", "metadata"],
             false
-          )
+          ),
+          { minItems: 1 }
         ),
       },
       ["updates"]
@@ -157,7 +160,7 @@ export const metadataTools: ToolDefinition[] = [
 
       const operations = updates.map((item, index) => {
         const entry = assertRecord(item, `updates[${index}]`);
-        const assetPath = getString(entry, "assetPath");
+        const assetPath = getRepositoryPath(entry, "assetPath");
         const metadata = normalizeMetadataProperties(entry.metadata);
         const endpoint = toApiAssetsEndpoint(baseUrl, assetPath, false);
 

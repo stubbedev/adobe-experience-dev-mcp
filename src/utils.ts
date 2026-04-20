@@ -2,6 +2,39 @@ import type { JsonObject } from "./types.js";
 
 export const DEFAULT_AEM_BASE_URL = "https://author.example.adobeaemcloud.com";
 
+const ISO_8601_UTC_REGEX = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/;
+
+export type AemRuntimeContext = {
+  baseUrl: string;
+  cloudFlavor: "cloud_service" | "ams" | "on_prem";
+  authMode: "ims_bearer_token" | "service_credentials" | "session_cookie";
+  defaultDamRoot: string;
+  retryPolicy: {
+    maxAttempts: number;
+    baseDelayMs: number;
+    maxDelayMs: number;
+    jitter: boolean;
+  };
+};
+
+const DEFAULT_RUNTIME_CONTEXT: AemRuntimeContext = {
+  baseUrl: DEFAULT_AEM_BASE_URL,
+  cloudFlavor: "cloud_service",
+  authMode: "ims_bearer_token",
+  defaultDamRoot: "",
+  retryPolicy: {
+    maxAttempts: 5,
+    baseDelayMs: 250,
+    maxDelayMs: 5000,
+    jitter: true,
+  },
+};
+
+let runtimeContext: AemRuntimeContext = {
+  ...DEFAULT_RUNTIME_CONTEXT,
+  retryPolicy: { ...DEFAULT_RUNTIME_CONTEXT.retryPolicy },
+};
+
 export function assertRecord(value: unknown, fieldName: string): JsonObject {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new Error(`'${fieldName}' must be an object.`);
@@ -18,6 +51,22 @@ export function getString(args: JsonObject, key: string): string {
   return value.trim();
 }
 
+export function getPositiveInteger(args: JsonObject, key: string): number {
+  const value = args[key];
+  if (!Number.isInteger(value) || (value as number) <= 0) {
+    throw new Error(`'${key}' must be a positive integer.`);
+  }
+  return value as number;
+}
+
+export function getNonNegativeInteger(args: JsonObject, key: string): number {
+  const value = args[key];
+  if (!Number.isInteger(value) || (value as number) < 0) {
+    throw new Error(`'${key}' must be a non-negative integer.`);
+  }
+  return value as number;
+}
+
 export function getOptionalString(args: JsonObject, key: string): string | undefined {
   const value = args[key];
   if (value === undefined || value === null) {
@@ -30,6 +79,96 @@ export function getOptionalString(args: JsonObject, key: string): string | undef
 
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function sanitizeRepositoryPath(rawPath: string): string {
+  let path = rawPath.trim();
+
+  path = path.replace(/^https?:\/\/[^/]+/i, "");
+  path = path.replace(/^\/api\/assets\/?/i, "");
+  path = path.replace(/^\/content\/dam\/?/i, "");
+  path = path.replace(/^\/+|\/+$/g, "");
+
+  if (path.includes("\\")) {
+    throw new Error("Repository paths must use '/' separators.");
+  }
+
+  if (/[?#]/.test(path)) {
+    throw new Error("Repository paths cannot include query strings or hash fragments.");
+  }
+
+  if (path.split("/").some((segment) => segment === "..")) {
+    throw new Error("Repository paths cannot include '..' traversal segments.");
+  }
+
+  return path;
+}
+
+function applyDefaultDamRoot(path: string): string {
+  if (!runtimeContext.defaultDamRoot) {
+    return path;
+  }
+
+  const defaultRoot = sanitizeRepositoryPath(runtimeContext.defaultDamRoot);
+  if (!defaultRoot) {
+    return path;
+  }
+
+  if (!path) {
+    return defaultRoot;
+  }
+
+  if (path === defaultRoot || path.startsWith(`${defaultRoot}/`)) {
+    return path;
+  }
+
+  return `${defaultRoot}/${path}`;
+}
+
+export function getRepositoryPath(args: JsonObject, key: string): string {
+  const value = getString(args, key);
+  const normalized = sanitizeRepositoryPath(value);
+
+  if (!normalized) {
+    throw new Error(`'${key}' must be a non-empty path relative to /content/dam.`);
+  }
+
+  return normalized;
+}
+
+export function getOptionalRepositoryPath(args: JsonObject, key: string): string | undefined {
+  const value = getOptionalString(args, key);
+  if (value === undefined) {
+    return undefined;
+  }
+
+  return sanitizeRepositoryPath(value);
+}
+
+export function getFileName(args: JsonObject, key: string): string {
+  const value = getString(args, key);
+  if (value.includes("/") || value.includes("\\")) {
+    throw new Error(`'${key}' must be a file name, not a path.`);
+  }
+  if (value === "." || value === "..") {
+    throw new Error(`'${key}' must be a valid file name.`);
+  }
+  return value;
+}
+
+export function getIsoTimestamp(args: JsonObject, key: string): string {
+  const value = getString(args, key);
+
+  if (!ISO_8601_UTC_REGEX.test(value)) {
+    throw new Error(`'${key}' must be an ISO-8601 UTC timestamp like 2026-04-20T12:30:00.000Z.`);
+  }
+
+  const epoch = Date.parse(value);
+  if (Number.isNaN(epoch)) {
+    throw new Error(`'${key}' is not a valid timestamp.`);
+  }
+
+  return value;
 }
 
 export function getNumber(args: JsonObject, key: string): number {
@@ -79,19 +218,13 @@ export function getArray(args: JsonObject, key: string): unknown[] {
 }
 
 export function getBaseUrl(args: JsonObject): string {
-  const baseUrl = getOptionalString(args, "baseUrl") ?? DEFAULT_AEM_BASE_URL;
+  const baseUrl = getOptionalString(args, "baseUrl") ?? runtimeContext.baseUrl;
   return baseUrl.replace(/\/+$/, "");
 }
 
 export function normalizeRepositoryPath(rawPath: string): string {
-  let path = rawPath.trim();
-
-  path = path.replace(/^https?:\/\/[^/]+/i, "");
-  path = path.replace(/^\/api\/assets\/?/i, "");
-  path = path.replace(/^\/content\/dam\/?/i, "");
-  path = path.replace(/^\/+|\/+$/g, "");
-
-  return path;
+  const sanitized = sanitizeRepositoryPath(rawPath);
+  return applyDefaultDamRoot(sanitized);
 }
 
 export function encodePathSegments(path: string): string {
@@ -173,4 +306,68 @@ export function stringifyResponsePayload(payload: unknown): string {
     return payload;
   }
   return JSON.stringify(payload, null, 2);
+}
+
+function normalizeBaseUrl(baseUrl: string): string {
+  const trimmed = baseUrl.trim().replace(/\/+$/, "");
+  if (!/^https?:\/\//i.test(trimmed)) {
+    throw new Error("'baseUrl' must start with http:// or https://.");
+  }
+  return trimmed;
+}
+
+export function getAemRuntimeContext(): AemRuntimeContext {
+  return {
+    ...runtimeContext,
+    retryPolicy: { ...runtimeContext.retryPolicy },
+  };
+}
+
+export function setAemRuntimeContext(update: Partial<AemRuntimeContext>): AemRuntimeContext {
+  if (update.baseUrl !== undefined) {
+    runtimeContext.baseUrl = normalizeBaseUrl(update.baseUrl);
+  }
+
+  if (update.cloudFlavor !== undefined) {
+    runtimeContext.cloudFlavor = update.cloudFlavor;
+  }
+
+  if (update.authMode !== undefined) {
+    runtimeContext.authMode = update.authMode;
+  }
+
+  if (update.defaultDamRoot !== undefined) {
+    runtimeContext.defaultDamRoot = sanitizeRepositoryPath(update.defaultDamRoot);
+  }
+
+  if (update.retryPolicy !== undefined) {
+    const retryPolicy = update.retryPolicy;
+    if (!Number.isInteger(retryPolicy.maxAttempts) || retryPolicy.maxAttempts < 1 || retryPolicy.maxAttempts > 20) {
+      throw new Error("'retryPolicy.maxAttempts' must be an integer between 1 and 20.");
+    }
+    if (!Number.isInteger(retryPolicy.baseDelayMs) || retryPolicy.baseDelayMs < 0) {
+      throw new Error("'retryPolicy.baseDelayMs' must be a non-negative integer.");
+    }
+    if (!Number.isInteger(retryPolicy.maxDelayMs) || retryPolicy.maxDelayMs < retryPolicy.baseDelayMs) {
+      throw new Error("'retryPolicy.maxDelayMs' must be an integer greater than or equal to baseDelayMs.");
+    }
+
+    runtimeContext.retryPolicy = {
+      maxAttempts: retryPolicy.maxAttempts,
+      baseDelayMs: retryPolicy.baseDelayMs,
+      maxDelayMs: retryPolicy.maxDelayMs,
+      jitter: retryPolicy.jitter,
+    };
+  }
+
+  return getAemRuntimeContext();
+}
+
+export function resetAemRuntimeContext(): AemRuntimeContext {
+  runtimeContext = {
+    ...DEFAULT_RUNTIME_CONTEXT,
+    retryPolicy: { ...DEFAULT_RUNTIME_CONTEXT.retryPolicy },
+  };
+
+  return getAemRuntimeContext();
 }

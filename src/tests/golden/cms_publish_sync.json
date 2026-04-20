@@ -1,0 +1,30 @@
+{
+  "presetName": "cms_publish_sync",
+  "requiredSteps": [
+    "ensure_folders",
+    "initiate_upload",
+    "upload_binary_parts",
+    "complete_upload",
+    "sync_metadata",
+    "sync_renditions",
+    "verify_asset_state"
+  ],
+  "recommendedSteps": [
+    "archive_or_move_assets"
+  ],
+  "requiredSafeguards": [
+    "retry_backoff",
+    "idempotency_keys",
+    "bounded_concurrency",
+    "structured_logging"
+  ],
+  "orderedPlanStepIds": [
+    "ensure_folders",
+    "initiate_upload",
+    "upload_binary_parts",
+    "complete_upload",
+    "sync_metadata",
+    "sync_renditions",
+    "verify_asset_state"
+  ]
+}

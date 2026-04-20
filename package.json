@@ -16,6 +16,8 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "dev": "tsx src/index.ts",
+    "test": "npm run build && node --test dist/tests/*.test.js",
+    "eval:accuracy": "npm run build && node dist/evals/accuracy-harness.js",
     "release:patch": "npm version patch && git push origin && git push origin --tags && gh release create $(git describe --tags) --generate-notes",
     "release:minor": "npm version minor && git push origin && git push origin --tags && gh release create $(git describe --tags) --generate-notes",
     "release:major": "npm version major && git push origin && git push origin --tags && gh release create $(git describe --tags) --generate-notes",

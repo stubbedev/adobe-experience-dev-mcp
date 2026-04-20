@@ -4,9 +4,12 @@ import {
   assertRecord,
   getArray,
   getBaseUrl,
+  getIsoTimestamp,
+  getNonNegativeInteger,
   getOptionalBoolean,
   getOptionalNumber,
   getOptionalString,
+  getRepositoryPath,
   getString,
   normalizeRepositoryPath,
   requiredAccess,
@@ -54,14 +57,16 @@ export const assetsTools: ToolDefinition[] = [
     category: "assets",
     inputSchema: objectSchema(
       {
-        assetPath: stringSchema("Asset path relative to /content/dam (example: marketing/campaigns/hero.jpg)"),
-        baseUrl: stringSchema("Optional AEM author base URL"),
+        assetPath: stringSchema("Asset path relative to /content/dam (example: marketing/campaigns/hero.jpg)", {
+          minLength: 1,
+        }),
+        baseUrl: stringSchema("Optional AEM author base URL", { pattern: "^https?://" }),
       },
       ["assetPath"]
     ),
     handler: (args) => {
       const baseUrl = getBaseUrl(args);
-      const assetPath = getString(args, "assetPath");
+      const assetPath = getRepositoryPath(args, "assetPath");
       const endpoint = toApiAssetsEndpoint(baseUrl, assetPath, true);
 
       return {
@@ -89,18 +94,18 @@ export const assetsTools: ToolDefinition[] = [
     category: "assets",
     inputSchema: objectSchema(
       {
-        sourcePath: stringSchema("Source asset path relative to /content/dam"),
-        destinationPath: stringSchema("Destination asset path relative to /content/dam"),
+        sourcePath: stringSchema("Source asset path relative to /content/dam", { minLength: 1 }),
+        destinationPath: stringSchema("Destination asset path relative to /content/dam", { minLength: 1 }),
         overwrite: booleanSchema("Optional: set true to allow overwrite"),
-        depth: stringSchema("Optional COPY depth, usually '0' for single assets"),
-        baseUrl: stringSchema("Optional AEM author base URL"),
+        depth: stringSchema("Optional COPY depth, usually '0' for single assets", { enum: ["0", "infinity"] }),
+        baseUrl: stringSchema("Optional AEM author base URL", { pattern: "^https?://" }),
       },
       ["sourcePath", "destinationPath"]
     ),
     handler: (args) => {
       const baseUrl = getBaseUrl(args);
-      const sourcePath = getString(args, "sourcePath");
-      const destinationPath = getString(args, "destinationPath");
+      const sourcePath = getRepositoryPath(args, "sourcePath");
+      const destinationPath = getRepositoryPath(args, "destinationPath");
       const overwrite = getOptionalBoolean(args, "overwrite") ?? false;
       const depth = getDepth(args);
 
@@ -134,18 +139,18 @@ export const assetsTools: ToolDefinition[] = [
     category: "assets",
     inputSchema: objectSchema(
       {
-        sourcePath: stringSchema("Source asset path relative to /content/dam"),
-        destinationPath: stringSchema("Destination asset path relative to /content/dam"),
+        sourcePath: stringSchema("Source asset path relative to /content/dam", { minLength: 1 }),
+        destinationPath: stringSchema("Destination asset path relative to /content/dam", { minLength: 1 }),
         overwrite: booleanSchema("Optional: set true to force overwrite"),
-        depth: stringSchema("Optional MOVE depth, usually '0' for single assets"),
-        baseUrl: stringSchema("Optional AEM author base URL"),
+        depth: stringSchema("Optional MOVE depth, usually '0' for single assets", { enum: ["0", "infinity"] }),
+        baseUrl: stringSchema("Optional AEM author base URL", { pattern: "^https?://" }),
       },
       ["sourcePath", "destinationPath"]
     ),
     handler: (args) => {
       const baseUrl = getBaseUrl(args);
-      const sourcePath = getString(args, "sourcePath");
-      const destinationPath = getString(args, "destinationPath");
+      const sourcePath = getRepositoryPath(args, "sourcePath");
+      const destinationPath = getRepositoryPath(args, "destinationPath");
       const overwrite = getOptionalBoolean(args, "overwrite") ?? false;
       const depth = getDepth(args);
 
@@ -179,14 +184,14 @@ export const assetsTools: ToolDefinition[] = [
     category: "assets",
     inputSchema: objectSchema(
       {
-        assetPath: stringSchema("Asset path relative to /content/dam"),
-        baseUrl: stringSchema("Optional AEM author base URL"),
+        assetPath: stringSchema("Asset path relative to /content/dam", { minLength: 1 }),
+        baseUrl: stringSchema("Optional AEM author base URL", { pattern: "^https?://" }),
       },
       ["assetPath"]
     ),
     handler: (args) => {
       const baseUrl = getBaseUrl(args);
-      const assetPath = getString(args, "assetPath");
+      const assetPath = getRepositoryPath(args, "assetPath");
       const endpoint = toApiAssetsEndpoint(baseUrl, assetPath, false);
 
       return {
@@ -216,16 +221,18 @@ export const renditionsTools: ToolDefinition[] = [
     category: "renditions",
     inputSchema: objectSchema(
       {
-        assetPath: stringSchema("Asset path relative to /content/dam"),
-        renditionName: stringSchema("Rendition name (example: web-optimized.jpg or cq5dam.thumbnail.319.319.png)"),
+        assetPath: stringSchema("Asset path relative to /content/dam", { minLength: 1 }),
+        renditionName: stringSchema("Rendition name (example: web-optimized.jpg or cq5dam.thumbnail.319.319.png)", {
+          minLength: 1,
+        }),
         contentType: stringSchema("Binary MIME type for rendition upload (default: application/octet-stream)"),
-        baseUrl: stringSchema("Optional AEM author base URL"),
+        baseUrl: stringSchema("Optional AEM author base URL", { pattern: "^https?://" }),
       },
       ["assetPath", "renditionName"]
     ),
     handler: (args) => {
       const baseUrl = getBaseUrl(args);
-      const assetPath = getString(args, "assetPath");
+      const assetPath = getRepositoryPath(args, "assetPath");
       const renditionName = getString(args, "renditionName");
       const contentType = getOptionalString(args, "contentType") ?? "application/octet-stream";
       const endpoint = toApiAssetsEndpoint(baseUrl, `${assetPath}/renditions/${renditionName}`, false);
@@ -256,16 +263,16 @@ export const renditionsTools: ToolDefinition[] = [
     category: "renditions",
     inputSchema: objectSchema(
       {
-        assetPath: stringSchema("Asset path relative to /content/dam"),
-        renditionName: stringSchema("Existing rendition name to replace"),
+        assetPath: stringSchema("Asset path relative to /content/dam", { minLength: 1 }),
+        renditionName: stringSchema("Existing rendition name to replace", { minLength: 1 }),
         contentType: stringSchema("Binary MIME type for rendition upload (default: application/octet-stream)"),
-        baseUrl: stringSchema("Optional AEM author base URL"),
+        baseUrl: stringSchema("Optional AEM author base URL", { pattern: "^https?://" }),
       },
       ["assetPath", "renditionName"]
     ),
     handler: (args) => {
       const baseUrl = getBaseUrl(args);
-      const assetPath = getString(args, "assetPath");
+      const assetPath = getRepositoryPath(args, "assetPath");
       const renditionName = getString(args, "renditionName");
       const contentType = getOptionalString(args, "contentType") ?? "application/octet-stream";
       const endpoint = toApiAssetsEndpoint(baseUrl, `${assetPath}/renditions/${renditionName}`, false);
@@ -295,15 +302,15 @@ export const renditionsTools: ToolDefinition[] = [
     category: "renditions",
     inputSchema: objectSchema(
       {
-        assetPath: stringSchema("Asset path relative to /content/dam"),
-        renditionName: stringSchema("Rendition name to delete"),
-        baseUrl: stringSchema("Optional AEM author base URL"),
+        assetPath: stringSchema("Asset path relative to /content/dam", { minLength: 1 }),
+        renditionName: stringSchema("Rendition name to delete", { minLength: 1 }),
+        baseUrl: stringSchema("Optional AEM author base URL", { pattern: "^https?://" }),
       },
       ["assetPath", "renditionName"]
     ),
     handler: (args) => {
       const baseUrl = getBaseUrl(args);
-      const assetPath = getString(args, "assetPath");
+      const assetPath = getRepositoryPath(args, "assetPath");
       const renditionName = getString(args, "renditionName");
       const endpoint = toApiAssetsEndpoint(baseUrl, `${assetPath}/renditions/${renditionName}`, false);
 
@@ -337,22 +344,22 @@ export const searchTools: ToolDefinition[] = [
       {
         path: stringSchema("Repository path to search within (relative to /content/dam, example: marketing/campaigns)"),
         fulltext: stringSchema("Optional fulltext search phrase"),
-        limit: numberSchema("Optional page size (default: 50)"),
-        offset: numberSchema("Optional page offset (default: 0)"),
+        limit: numberSchema("Optional page size (default: 50)", { integer: true, minimum: 0, maximum: 1000 }),
+        offset: numberSchema("Optional page offset (default: 0)", { integer: true, minimum: 0 }),
         orderBy: stringSchema("Optional sort property, example: @jcr:content/metadata/dc:modified"),
-        orderDirection: stringSchema("Optional sort direction: asc or desc (default: desc)"),
+        orderDirection: stringSchema("Optional sort direction: asc or desc (default: desc)", { enum: ["asc", "desc"] }),
         includeTotal: booleanSchema("Optional: include p.guessTotal=true for approximate totals"),
         metadataEquals: objectSchema({}, [], true),
-        baseUrl: stringSchema("Optional AEM author base URL"),
+        baseUrl: stringSchema("Optional AEM author base URL", { pattern: "^https?://" }),
       },
       ["path"]
     ),
     handler: (args) => {
       const baseUrl = getBaseUrl(args);
-      const path = getString(args, "path");
+      const path = getRepositoryPath(args, "path");
       const fulltext = getOptionalString(args, "fulltext");
-      const limit = getOptionalNumber(args, "limit") ?? 50;
-      const offset = getOptionalNumber(args, "offset") ?? 0;
+      const limit = args.limit === undefined ? 50 : getNonNegativeInteger(args, "limit");
+      const offset = args.offset === undefined ? 0 : getNonNegativeInteger(args, "offset");
       const orderBy = getOptionalString(args, "orderBy");
       const orderDirection = (getOptionalString(args, "orderDirection") ?? "desc").toLowerCase();
       const includeTotal = getOptionalBoolean(args, "includeTotal") ?? false;
@@ -434,39 +441,45 @@ export const searchTools: ToolDefinition[] = [
     category: "search",
     inputSchema: objectSchema(
       {
-        path: stringSchema("Root path to scan (relative to /content/dam, example: marketing/global)"),
-        pageSize: numberSchema("Optional page size (default: 200)"),
-        offset: numberSchema("Optional page offset (default: 0)"),
+        path: stringSchema("Root path to scan (relative to /content/dam, example: marketing/global)", { minLength: 1 }),
+        pageSize: numberSchema("Optional page size (default: 200)", { integer: true, minimum: 0, maximum: 2000 }),
+        offset: numberSchema("Optional page offset (default: 0)", { integer: true, minimum: 0 }),
         fulltext: stringSchema("Optional fulltext filter"),
         propertyPaths: arraySchema(
           "Optional selective fields for p.properties (default: jcr:path jcr:content/metadata/dc:title jcr:content/metadata/dc:format)",
           stringSchema("Property path")
         ),
         includeNodeDepth: numberSchema(
-          "Optional child node depth. When set, p.hits=full and p.nodedepth are enabled (use cautiously for payload size)."
+          "Optional child node depth. When set, p.hits=full and p.nodedepth are enabled (use cautiously for payload size).",
+          { integer: true, minimum: 0 }
         ),
         guessTotal: booleanSchema("Optional: include p.guessTotal=true (default: true)"),
-        guessTotalLimit: numberSchema("Optional: set p.guessTotal to a numeric ceiling, example 1000"),
+        guessTotalLimit: numberSchema("Optional: set p.guessTotal to a numeric ceiling, example 1000", {
+          integer: true,
+          minimum: 0,
+        }),
         sortBy: stringSchema("Optional sort field (default: @jcr:content/jcr:lastModified)"),
-        sortDirection: stringSchema("Optional sort direction: asc or desc (default: desc)"),
-        baseUrl: stringSchema("Optional AEM author base URL"),
+        sortDirection: stringSchema("Optional sort direction: asc or desc (default: desc)", { enum: ["asc", "desc"] }),
+        baseUrl: stringSchema("Optional AEM author base URL", { pattern: "^https?://" }),
       },
       ["path"]
     ),
     handler: (args) => {
       const baseUrl = getBaseUrl(args);
-      const path = getString(args, "path");
-      const pageSize = getOptionalNumber(args, "pageSize") ?? 200;
-      const offset = getOptionalNumber(args, "offset") ?? 0;
+      const path = getRepositoryPath(args, "path");
+      const pageSize = args.pageSize === undefined ? 200 : getNonNegativeInteger(args, "pageSize");
+      const offset = args.offset === undefined ? 0 : getNonNegativeInteger(args, "offset");
       const fulltext = getOptionalString(args, "fulltext");
       const propertyPaths = parseOptionalStringArray(args, "propertyPaths") ?? [
         "jcr:path",
         "jcr:content/metadata/dc:title",
         "jcr:content/metadata/dc:format",
       ];
-      const includeNodeDepth = getOptionalNumber(args, "includeNodeDepth");
+      const includeNodeDepth =
+        args.includeNodeDepth === undefined ? undefined : getNonNegativeInteger(args, "includeNodeDepth");
       const guessTotal = getOptionalBoolean(args, "guessTotal") ?? true;
-      const guessTotalLimit = getOptionalNumber(args, "guessTotalLimit");
+      const guessTotalLimit =
+        args.guessTotalLimit === undefined ? undefined : getNonNegativeInteger(args, "guessTotalLimit");
       const sortBy = getOptionalString(args, "sortBy") ?? "@jcr:content/jcr:lastModified";
       const sortDirection = (getOptionalString(args, "sortDirection") ?? "desc").toLowerCase();
 
@@ -558,21 +571,31 @@ export const searchTools: ToolDefinition[] = [
     inputSchema: objectSchema(
       {
         path: stringSchema("Repository path to search within (relative to /content/dam)"),
-        modifiedFrom: stringSchema("Inclusive ISO timestamp lower bound, example: 2026-04-01T00:00:00.000Z"),
-        modifiedTo: stringSchema("Exclusive ISO timestamp upper bound, example: 2026-04-20T00:00:00.000Z"),
-        limit: numberSchema("Optional page size (default: 200)"),
-        offset: numberSchema("Optional page offset (default: 0)"),
-        baseUrl: stringSchema("Optional AEM author base URL"),
+        modifiedFrom: stringSchema("Inclusive ISO timestamp lower bound, example: 2026-04-01T00:00:00.000Z", {
+          format: "date-time",
+          pattern: "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,3})?Z$",
+        }),
+        modifiedTo: stringSchema("Exclusive ISO timestamp upper bound, example: 2026-04-20T00:00:00.000Z", {
+          format: "date-time",
+          pattern: "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,3})?Z$",
+        }),
+        limit: numberSchema("Optional page size (default: 200)", { integer: true, minimum: 0, maximum: 2000 }),
+        offset: numberSchema("Optional page offset (default: 0)", { integer: true, minimum: 0 }),
+        baseUrl: stringSchema("Optional AEM author base URL", { pattern: "^https?://" }),
       },
       ["path", "modifiedFrom", "modifiedTo"]
     ),
     handler: (args) => {
       const baseUrl = getBaseUrl(args);
-      const path = getString(args, "path");
-      const modifiedFrom = getString(args, "modifiedFrom");
-      const modifiedTo = getString(args, "modifiedTo");
-      const limit = getOptionalNumber(args, "limit") ?? 200;
-      const offset = getOptionalNumber(args, "offset") ?? 0;
+      const path = getRepositoryPath(args, "path");
+      const modifiedFrom = getIsoTimestamp(args, "modifiedFrom");
+      const modifiedTo = getIsoTimestamp(args, "modifiedTo");
+      const limit = args.limit === undefined ? 200 : getNonNegativeInteger(args, "limit");
+      const offset = args.offset === undefined ? 0 : getNonNegativeInteger(args, "offset");
+
+      if (Date.parse(modifiedFrom) >= Date.parse(modifiedTo)) {
+        throw new Error("'modifiedFrom' must be earlier than 'modifiedTo'.");
+      }
 
       ensureNonNegativeInteger(limit, "limit");
       ensureNonNegativeInteger(offset, "offset");

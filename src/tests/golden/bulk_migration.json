@@ -1,0 +1,32 @@
+{
+  "presetName": "bulk_migration",
+  "requiredSteps": [
+    "discover_assets_baseline",
+    "ensure_folders",
+    "initiate_upload",
+    "upload_binary_parts",
+    "complete_upload",
+    "sync_metadata",
+    "verify_asset_state"
+  ],
+  "recommendedSteps": [
+    "sync_renditions",
+    "archive_or_move_assets"
+  ],
+  "requiredSafeguards": [
+    "retry_backoff",
+    "idempotency_keys",
+    "checkpoints",
+    "bounded_concurrency",
+    "structured_logging"
+  ],
+  "orderedPlanStepIds": [
+    "discover_assets_baseline",
+    "ensure_folders",
+    "initiate_upload",
+    "upload_binary_parts",
+    "complete_upload",
+    "sync_metadata",
+    "verify_asset_state"
+  ]
+}

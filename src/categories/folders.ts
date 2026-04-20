@@ -4,7 +4,9 @@ import {
   buildJsonHeaders,
   getBaseUrl,
   getOptionalBoolean,
+  getOptionalRepositoryPath,
   getOptionalString,
+  getRepositoryPath,
   getString,
   joinRepositoryPath,
   requiredAccess,
@@ -27,14 +29,14 @@ export const foldersTools: ToolDefinition[] = [
     category: "folders",
     inputSchema: objectSchema(
       {
-        folderPath: stringSchema("Folder path relative to /content/dam. Leave empty to list DAM root."),
-        baseUrl: stringSchema("Optional AEM author base URL"),
+        folderPath: stringSchema("Folder path relative to /content/dam. Leave empty to list DAM root.", { minLength: 1 }),
+        baseUrl: stringSchema("Optional AEM author base URL", { pattern: "^https?://" }),
       },
       []
     ),
     handler: (args) => {
       const baseUrl = getBaseUrl(args);
-      const folderPath = getOptionalString(args, "folderPath") ?? "";
+      const folderPath = getOptionalRepositoryPath(args, "folderPath") ?? "";
       const endpoint = toApiAssetsEndpoint(baseUrl, folderPath, true);
 
       return {
@@ -65,15 +67,15 @@ export const foldersTools: ToolDefinition[] = [
     inputSchema: objectSchema(
       {
         parentPath: stringSchema("Parent folder path relative to /content/dam. Use empty string for DAM root."),
-        folderName: stringSchema("Name of the folder to create"),
+        folderName: stringSchema("Name of the folder to create", { minLength: 1 }),
         title: stringSchema("Optional display title (jcr:title)"),
-        baseUrl: stringSchema("Optional AEM author base URL"),
+        baseUrl: stringSchema("Optional AEM author base URL", { pattern: "^https?://" }),
       },
       ["folderName"]
     ),
     handler: (args) => {
       const baseUrl = getBaseUrl(args);
-      const parentPath = getOptionalString(args, "parentPath") ?? "";
+      const parentPath = getOptionalRepositoryPath(args, "parentPath") ?? "";
       const folderName = getString(args, "folderName");
       const title = getOptionalString(args, "title") ?? folderName;
 
@@ -109,18 +111,18 @@ export const foldersTools: ToolDefinition[] = [
     category: "folders",
     inputSchema: objectSchema(
       {
-        sourcePath: stringSchema("Source folder path relative to /content/dam"),
-        destinationPath: stringSchema("Destination folder path relative to /content/dam"),
+        sourcePath: stringSchema("Source folder path relative to /content/dam", { minLength: 1 }),
+        destinationPath: stringSchema("Destination folder path relative to /content/dam", { minLength: 1 }),
         overwrite: booleanSchema("Optional: set true to allow overwriting destination"),
-        depth: stringSchema("Optional COPY depth: 'infinity' (default) or '0'"),
-        baseUrl: stringSchema("Optional AEM author base URL"),
+        depth: stringSchema("Optional COPY depth: 'infinity' (default) or '0'", { enum: ["0", "infinity"] }),
+        baseUrl: stringSchema("Optional AEM author base URL", { pattern: "^https?://" }),
       },
       ["sourcePath", "destinationPath"]
     ),
     handler: (args) => {
       const baseUrl = getBaseUrl(args);
-      const sourcePath = getString(args, "sourcePath");
-      const destinationPath = getString(args, "destinationPath");
+      const sourcePath = getRepositoryPath(args, "sourcePath");
+      const destinationPath = getRepositoryPath(args, "destinationPath");
       const overwrite = getOptionalBoolean(args, "overwrite") ?? false;
       const depth = getDepth(args);
 
@@ -154,18 +156,18 @@ export const foldersTools: ToolDefinition[] = [
     category: "folders",
     inputSchema: objectSchema(
       {
-        sourcePath: stringSchema("Source folder path relative to /content/dam"),
-        destinationPath: stringSchema("Destination folder path relative to /content/dam"),
+        sourcePath: stringSchema("Source folder path relative to /content/dam", { minLength: 1 }),
+        destinationPath: stringSchema("Destination folder path relative to /content/dam", { minLength: 1 }),
         overwrite: booleanSchema("Optional: set true to force overwrite destination"),
-        depth: stringSchema("Optional MOVE depth: 'infinity' (default) or '0'"),
-        baseUrl: stringSchema("Optional AEM author base URL"),
+        depth: stringSchema("Optional MOVE depth: 'infinity' (default) or '0'", { enum: ["0", "infinity"] }),
+        baseUrl: stringSchema("Optional AEM author base URL", { pattern: "^https?://" }),
       },
       ["sourcePath", "destinationPath"]
     ),
     handler: (args) => {
       const baseUrl = getBaseUrl(args);
-      const sourcePath = getString(args, "sourcePath");
-      const destinationPath = getString(args, "destinationPath");
+      const sourcePath = getRepositoryPath(args, "sourcePath");
+      const destinationPath = getRepositoryPath(args, "destinationPath");
       const overwrite = getOptionalBoolean(args, "overwrite") ?? false;
       const depth = getDepth(args);
 
@@ -199,14 +201,14 @@ export const foldersTools: ToolDefinition[] = [
     category: "folders",
     inputSchema: objectSchema(
       {
-        folderPath: stringSchema("Folder path relative to /content/dam"),
-        baseUrl: stringSchema("Optional AEM author base URL"),
+        folderPath: stringSchema("Folder path relative to /content/dam", { minLength: 1 }),
+        baseUrl: stringSchema("Optional AEM author base URL", { pattern: "^https?://" }),
       },
       ["folderPath"]
     ),
     handler: (args) => {
       const baseUrl = getBaseUrl(args);
-      const folderPath = getString(args, "folderPath");
+      const folderPath = getRepositoryPath(args, "folderPath");
       const endpoint = toApiAssetsEndpoint(baseUrl, folderPath, false);
 
       return {

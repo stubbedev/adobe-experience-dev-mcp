@@ -2,11 +2,13 @@ import type { ToolDefinition } from "../types.js";
 import { arraySchema, booleanSchema, numberSchema, objectSchema, stringSchema } from "../schemas.js";
 import {
   buildFormHeaders,
+  getFileName,
   getBaseUrl,
-  getNumber,
+  getNonNegativeInteger,
   getOptionalBoolean,
-  getOptionalNumber,
   getOptionalString,
+  getPositiveInteger,
+  getRepositoryPath,
   getString,
   requiredAccess,
   toDamFolder,
@@ -80,22 +82,23 @@ export const uploadsTools: ToolDefinition[] = [
     category: "uploads",
     inputSchema: objectSchema(
       {
-        folderPath: stringSchema("Destination DAM folder path, relative to /content/dam (example: marketing/campaigns/2026)"),
-        fileName: stringSchema("Asset file name (example: hero-banner.jpg)"),
-        fileSize: numberSchema("Asset file size in bytes"),
-        baseUrl: stringSchema("Optional AEM author base URL (defaults to https://author.example.adobeaemcloud.com)"),
+        folderPath: stringSchema(
+          "Destination DAM folder path, relative to /content/dam (example: marketing/campaigns/2026)",
+          { minLength: 1 }
+        ),
+        fileName: stringSchema("Asset file name (example: hero-banner.jpg)", { minLength: 1 }),
+        fileSize: numberSchema("Asset file size in bytes", { integer: true, minimum: 1 }),
+        baseUrl: stringSchema("Optional AEM author base URL (defaults to https://author.example.adobeaemcloud.com)", {
+          pattern: "^https?://",
+        }),
       },
       ["folderPath", "fileName", "fileSize"]
     ),
     handler: (args) => {
       const baseUrl = getBaseUrl(args);
-      const folderPath = getString(args, "folderPath");
-      const fileName = getString(args, "fileName");
-      const fileSize = getNumber(args, "fileSize");
-
-      if (!Number.isInteger(fileSize) || fileSize <= 0) {
-        throw new Error("'fileSize' must be a positive integer.");
-      }
+      const folderPath = getRepositoryPath(args, "folderPath");
+      const fileName = getFileName(args, "fileName");
+      const fileSize = getPositiveInteger(args, "fileSize");
 
       const endpoint = toDamFolder(baseUrl, folderPath, ".initiateUpload.json");
       const body = { fileName, fileSize };
@@ -125,23 +128,42 @@ export const uploadsTools: ToolDefinition[] = [
     inputSchema: objectSchema(
       {
         completeUri: stringSchema("completeURI from initiate response; can be absolute or relative"),
-        fileName: stringSchema("File name returned by initiate response"),
-        mimeType: stringSchema("MIME type returned by initiate response"),
-        uploadToken: stringSchema("uploadToken returned by initiate response"),
+        fileName: stringSchema("File name returned by initiate response", { minLength: 1 }),
+        mimeType: stringSchema("MIME type returned by initiate response", {
+          pattern: "^[a-zA-Z0-9.+-]+/[a-zA-Z0-9.+-]+$",
+        }),
+        uploadToken: stringSchema("uploadToken returned by initiate response", { minLength: 1 }),
         createVersion: booleanSchema("Optional: create a new version if asset exists"),
         replace: booleanSchema("Optional: replace existing asset by deleting and recreating"),
         versionLabel: stringSchema("Optional version label when createVersion=true"),
         versionComment: stringSchema("Optional version comment when createVersion=true"),
-        uploadDuration: numberSchema("Optional total upload duration in milliseconds"),
-        fileSize: numberSchema("Optional file size in bytes for transfer analysis"),
-        baseUrl: stringSchema("Optional AEM author base URL used when completeUri is relative"),
+        uploadDuration: numberSchema("Optional total upload duration in milliseconds", {
+          integer: true,
+          minimum: 0,
+        }),
+        fileSize: numberSchema("Optional file size in bytes for transfer analysis", {
+          integer: true,
+          minimum: 1,
+        }),
+        baseUrl: stringSchema("Optional AEM author base URL used when completeUri is relative", {
+          pattern: "^https?://",
+        }),
+        initiateContract: objectSchema(
+          {
+            completeUri: stringSchema("completeURI returned by initiate response"),
+            fileName: stringSchema("fileName returned by initiate response"),
+            uploadToken: stringSchema("uploadToken returned by initiate response"),
+          },
+          ["completeUri", "fileName", "uploadToken"],
+          false
+        ),
       },
       ["completeUri", "fileName", "mimeType", "uploadToken"]
     ),
     handler: (args) => {
       const baseUrl = getBaseUrl(args);
       const completeUri = getString(args, "completeUri");
-      const fileName = getString(args, "fileName");
+      const fileName = getFileName(args, "fileName");
       const mimeType = getString(args, "mimeType");
       const uploadToken = getString(args, "uploadToken");
 
@@ -149,10 +171,50 @@ export const uploadsTools: ToolDefinition[] = [
       const replace = getOptionalBoolean(args, "replace");
       const versionLabel = getOptionalString(args, "versionLabel");
       const versionComment = getOptionalString(args, "versionComment");
-      const uploadDuration = getOptionalNumber(args, "uploadDuration");
-      const fileSize = getOptionalNumber(args, "fileSize");
+      const uploadDuration = args.uploadDuration === undefined ? undefined : getNonNegativeInteger(args, "uploadDuration");
+      const fileSize = args.fileSize === undefined ? undefined : getPositiveInteger(args, "fileSize");
 
       const endpoint = resolveCompleteUri(baseUrl, completeUri);
+
+      const initiateContractRaw = args.initiateContract;
+      const contractMismatches: string[] = [];
+
+      if (initiateContractRaw !== undefined) {
+        if (!initiateContractRaw || typeof initiateContractRaw !== "object" || Array.isArray(initiateContractRaw)) {
+          throw new Error("'initiateContract' must be an object.");
+        }
+
+        const initiateContract = initiateContractRaw as Record<string, unknown>;
+        const contractCompleteUriRaw = initiateContract.completeUri;
+        const contractFileNameRaw = initiateContract.fileName;
+        const contractUploadTokenRaw = initiateContract.uploadToken;
+
+        if (typeof contractCompleteUriRaw !== "string" || contractCompleteUriRaw.trim().length === 0) {
+          throw new Error("'initiateContract.completeUri' must be a non-empty string.");
+        }
+        if (typeof contractFileNameRaw !== "string" || contractFileNameRaw.trim().length === 0) {
+          throw new Error("'initiateContract.fileName' must be a non-empty string.");
+        }
+        if (typeof contractUploadTokenRaw !== "string" || contractUploadTokenRaw.trim().length === 0) {
+          throw new Error("'initiateContract.uploadToken' must be a non-empty string.");
+        }
+
+        const contractEndpoint = resolveCompleteUri(baseUrl, contractCompleteUriRaw.trim());
+
+        if (contractEndpoint !== endpoint) {
+          contractMismatches.push("completeUri does not match initiate response completeUri.");
+        }
+        if (contractFileNameRaw.trim() !== fileName) {
+          contractMismatches.push("fileName does not match initiate response fileName.");
+        }
+        if (contractUploadTokenRaw.trim() !== uploadToken) {
+          contractMismatches.push("uploadToken does not match initiate response uploadToken.");
+        }
+      }
+
+      if (contractMismatches.length > 0) {
+        throw new Error(`Cross-step contract validation failed: ${contractMismatches.join(" ")}`);
+      }
 
       const body: Record<string, string | number | boolean> = {
         fileName,
@@ -174,6 +236,17 @@ export const uploadsTools: ToolDefinition[] = [
         pathParams: { completeUri },
         queryParams: {},
         body,
+        contractCheck:
+          initiateContractRaw === undefined
+            ? {
+                validated: false,
+                message:
+                  "No initiateContract provided. For stricter sequencing accuracy, pass initiateContract from the upload initiate response.",
+              }
+            : {
+                validated: true,
+                message: "completeUri, fileName, and uploadToken match the initiate response contract.",
+              },
         description: `Finalize direct binary upload for '${fileName}'.`,
         docsUrl:
           "https://experienceleague.adobe.com/en/docs/experience-manager-cloud-service/content/assets/admin/developer-reference-material-apis#complete-upload",
@@ -191,17 +264,17 @@ export const uploadsTools: ToolDefinition[] = [
     category: "uploads",
     inputSchema: objectSchema(
       {
-        fileSize: numberSchema("Total file size in bytes"),
-        maxPartSize: numberSchema("maxPartSize from initiate response"),
-        minPartSize: numberSchema("minPartSize from initiate response"),
-        uploadUris: arraySchema("Optional uploadURIs from initiate response", stringSchema("Upload URI")),
+        fileSize: numberSchema("Total file size in bytes", { integer: true, minimum: 1 }),
+        maxPartSize: numberSchema("maxPartSize from initiate response", { integer: true, minimum: 1 }),
+        minPartSize: numberSchema("minPartSize from initiate response", { integer: true, minimum: 1 }),
+        uploadUris: arraySchema("Optional uploadURIs from initiate response", stringSchema("Upload URI", { minLength: 1 })),
       },
       ["fileSize", "maxPartSize", "minPartSize"]
     ),
     handler: (args) => {
-      const fileSize = getNumber(args, "fileSize");
-      const maxPartSize = getNumber(args, "maxPartSize");
-      const minPartSize = getNumber(args, "minPartSize");
+      const fileSize = getPositiveInteger(args, "fileSize");
+      const maxPartSize = getPositiveInteger(args, "maxPartSize");
+      const minPartSize = getPositiveInteger(args, "minPartSize");
 
       const uploadUrisRaw = args.uploadUris;
       let uploadUris: string[] = [];
@@ -232,6 +305,18 @@ export const uploadsTools: ToolDefinition[] = [
         strategy: "Use maxPartSize for each part except the final part.",
         input: { fileSize, minPartSize, maxPartSize, uploadUriCount: uploadUris.length },
         totalParts: parts.length,
+        uriCoverage:
+          uploadUris.length === 0
+            ? "unbound"
+            : uploadUris.length === parts.length
+            ? "exact"
+            : "mismatch",
+        uriCoverageNote:
+          uploadUris.length === 0
+            ? "No uploadUris provided; assign in order from initiate response."
+            : uploadUris.length === parts.length
+            ? "uploadUris count matches planned parts."
+            : `uploadUris count (${uploadUris.length}) does not match planned parts (${parts.length}).`,
         parts: partAssignments,
         notes:
           "Each non-final part must be >= minPartSize and <= maxPartSize. Final part can be smaller than minPartSize. Use uploadURIs in order.",
