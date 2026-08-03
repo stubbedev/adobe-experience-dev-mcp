@@ -45,13 +45,13 @@
     "model-context-protocol"
   ],
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/node": "^25.9.5",
     "npm-check-updates": "^21.0.3",
-    "tsx": "^4.23.1",
+    "tsx": "^4.23.5",
     "typescript": "^6.0.3"
   }
 }
