@@ -1,6 +1,6 @@
 {
   "name": "@stubbedev/adobe-experience-dev-mcp",
-  "version": "0.1.19",
+  "version": "0.1.20",
   "description": "MCP server for Adobe Experience Manager Assets integration development",
   "type": "module",
   "main": "dist/index.js",
